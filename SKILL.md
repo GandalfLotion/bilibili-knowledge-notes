@@ -1,9 +1,9 @@
 ---
-name: video-knowledge-notes
-description: 将视频链接、本地音视频或已有字幕整理为详细、独立可读的简体中文 Obsidian 知识笔记。优先获取平台现成字幕，按需复用专用浏览器登录状态，无可用字幕时才选择转写。适合知识类视频，不限题材。
+name: bilibili-video-notes
+description: 获取 B 站（Bilibili）视频的现成中文字幕，支持 BV 链接和分 P，并整理为详细、独立可读的简体中文 Obsidian 知识笔记。也可整理用户提供的字幕或本地音视频，缺少可用字幕时按需转写。
 ---
 
-# 视频知识笔记
+# B 站视频知识笔记
 
 ## 工作原则
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""One-command setup for video-knowledge-notes.
+"""One-command setup for bilibili-video-notes.
 
 Rules that keep installation fast on a fresh machine:
   * never download a browser binary; the skill reuses the system Chrome/Edge;

@@ -1,8 +1,8 @@
 <div align="center">
 
-<h1>Video Knowledge Notes</h1>
+<h1>B 站视频知识笔记</h1>
 
-<p><strong>把知识视频整理成可以独立阅读、理解与复用的 Markdown 笔记</strong></p>
+<p><strong>获取 B 站视频字幕，整理为可以独立阅读的 Obsidian / Markdown 知识笔记</strong></p>
 
 <p>适用于 WorkBuddy 等支持本地 Skill 工作流的 AI Agent · 面向 Obsidian 与通用 Markdown 阅读环境</p>
 
@@ -21,7 +21,7 @@
 
 ## 项目简介
 
-Video Knowledge Notes 是一个面向 **知识类视频** 的 AI Agent Skill。它将用户提供的视频链接、本地音视频或现成字幕，整理为详细、独立可读的**简体中文 Markdown 知识笔记**。
+`bilibili-video-notes` 是一个面向 B 站知识类视频的 AI Agent Skill。它支持获取 BV 链接和指定分 P 的中文字幕，也能将用户提供的本地音视频或现成字幕整理为详细、独立可读的**简体中文 Markdown 知识笔记**。
 
 它不追求把一小时的视频压缩成几条结论，而是尽可能保留视频中的**概念、推理过程、案例、关键数字与适用边界**，让读者不必重新打开视频，也能理解和复用其中的知识。
 
@@ -63,16 +63,18 @@ Video Knowledge Notes 是一个面向 **知识类视频** 的 AI Agent Skill。�
 ### 方式一：作为 Agent Skill 使用（推荐）
 
 1. 点击仓库右上角的 **Code → Download ZIP**，下载源码。
-2. 在 WorkBuddy 的技能页选择 **上传技能** 并导入 ZIP。其他 Agent 可解压后，按各自的方式安装包含 `SKILL.md` 的目录。
+2. 在 WorkBuddy 的技能页选择 **上传技能** 并导入 ZIP。手动安装时，将解压后包含 `SKILL.md` 的目录命名为 `bilibili-video-notes`，再按 Agent 的方式启用。
 3. 启用技能并提供视频链接、本地文件或字幕。已有字幕可以直接整理。需要在线获取 B 站字幕时，按下方说明准备依赖。
 
 > 主要针对 WorkBuddy 工作流编写。其他 Agent 是否能自动发现并执行该 Skill，取决于对应产品的 Skill 机制、权限和工具环境；不能仅凭目录存在就保证兼容。
+
+已安装旧名 `video-knowledge-notes` 的用户可以重新导入新版，启用 `bilibili-video-notes`。已有的专用浏览器档案会继续从 `.video-knowledge-notes` 读取。
 
 ### 使用示例
 
 向 Agent 发出以下类型的请求即可：
 
-> 请用 video-knowledge-notes 整理这个 B 站视频：[视频链接]。保留核心概念、推理过程和案例，输出一份可以独立阅读的简体中文 Markdown 笔记。
+> 请用 bilibili-video-notes 整理这个 B 站视频：[视频链接]。保留核心概念、推理过程和案例，输出一份可以独立阅读的简体中文 Markdown 笔记。
 
 > 我已经有这段课程的视频字幕，请直接根据字幕生成详细学习笔记，不要重新下载或识别视频。
 
@@ -137,7 +139,7 @@ sources/
 ## 项目结构
 
 ```text
-video-knowledge-notes/
+bilibili-video-notes/
 ├── SKILL.md                         # Skill 主入口及工作流程
 ├── bootstrap.py                     # 环境诊断、安装与离线包校验
 ├── requirements.txt                 # Python 依赖
@@ -174,6 +176,6 @@ video-knowledge-notes/
 ---
 
 <div align="center">
-<p><strong>Video Knowledge Notes · v2.1.3</strong></p>
+<p><strong>B 站视频知识笔记 · v2.1.3</strong></p>
 <p>让视频知识成为可以长期阅读、理解和复用的笔记。</p>
 </div>

@@ -1,0 +1,5 @@
+# Python 3.10+。推荐用 `python bootstrap.py` 安装：离线 wheel 优先、短超时、绝不下载浏览器。
+# 本文件供手工安装或 CI 使用；传递依赖由 pip 自行解析，离线时从 wheels/ 中取。
+# greenlet 的 wheel 带 Python ABI 与平台标签，跨平台请按目标环境生成离线包。
+# 注意：安装依赖的解释器，必须是之后运行 fetch/login 的那个解释器。
+playwright==1.64.1

@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.DS_Store
+*.log
+
+# 离线 wheel 作为 Release 资产分发，不进仓库
+wheels/*.whl
+!wheels/.gitkeep
+
+# 运行时产物与登录数据
+sources/
+_work/
+.video-knowledge-notes/

@@ -7,7 +7,7 @@
 <p>适用于 WorkBuddy 等支持本地 Skill 工作流的 AI Agent · 面向 Obsidian 与通用 Markdown 阅读环境</p>
 
 <p>
-  <img src="https://img.shields.io/badge/Release-v1.0.0-2563eb?style=flat-square" alt="Release v1.0.0" />
+  <img src="https://img.shields.io/badge/Version-v2.1.3-2563eb?style=flat-square" alt="Version v2.1.3" />
   <img src="https://img.shields.io/badge/Type-Agent%20Skill-16a34a?style=flat-square" alt="Agent Skill" />
   <img src="https://img.shields.io/badge/Notes-Markdown-334155?style=flat-square" alt="Markdown" />
   <img src="https://img.shields.io/badge/Language-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-64748b?style=flat-square" alt="简体中文" />
@@ -63,10 +63,9 @@ Video Knowledge Notes 是一个面向 **知识类视频** 的 AI Agent Skill。�
 
 ### 方式一：作为 Agent Skill 使用（推荐）
 
-1. 点击仓库右上角的 **Code → Download ZIP**，下载并解压；或使用 Git 克隆仓库。
-2. 将整个 `video-knowledge-notes` 目录放入你的 Agent 所支持的 **Skill 目录**，保留 `SKILL.md`、`scripts/` 和 `references/` 的相对位置。
-3. 按 Agent 的 Skill 发现机制启用该目录，并确认其能够读取 `SKILL.md`。
-4. 向 Agent 提供视频链接、本地文件或字幕，并说明要生成知识笔记。
+1. 点击仓库右上角的 **Code → Download ZIP**，下载源码。
+2. 在 WorkBuddy 的技能页选择 **上传技能** 并导入 ZIP。其他 Agent 可解压后，按各自的方式安装包含 `SKILL.md` 的目录。
+3. 启用技能并提供视频链接、本地文件或字幕。已有字幕可以直接整理。需要在线获取 B 站字幕时，按下方说明准备依赖。
 
 > 主要针对 WorkBuddy 工作流编写。其他 Agent 是否能自动发现并执行该 Skill，取决于对应产品的 Skill 机制、权限和工具环境；不能仅凭目录存在就保证兼容。
 
@@ -82,33 +81,37 @@ Video Knowledge Notes 是一个面向 **知识类视频** 的 AI Agent Skill。�
 
 ### 方式二：单独运行 B 站字幕获取脚本
 
-若只需要使用内置字幕获取能力，可在仓库目录运行 Python 脚本。先确保使用的 Python 环境安装了 `playwright`，并具备可供 Playwright 使用的浏览器。
+B 站专用浏览器登录和在线获取字幕需要 **Python 3.10+、Playwright，以及可启动的 Chrome 或 Edge**。Chrome 和 Edge 任选其一，无需更改默认浏览器。已有字幕或有效缓存可以直接用于写笔记。WorkBuddy 当前任务能调用兼容 Python 时，直接复用该解释器。
+
+在下载并解压后的源码目录中，用**同一个 Python 解释器**执行以下命令。
 
 ```powershell
-python -m pip install playwright
+python -X utf8 bootstrap.py --doctor
+python -X utf8 bootstrap.py
+python -X utf8 scripts/browser_subtitles.py doctor
 ```
 
-如果已有 Edge 或 Chrome，可用 `--channel msedge` 或 `--channel chrome` 指定；也可以在用户同意后安装 Playwright Chromium：
+`bootstrap.py` 先尝试 `wheels/` 中匹配的离线依赖，再尝试在线镜像。GitHub 的源码 ZIP 只含源码，首次安装通常需要联网。如果手头有包含 wheel 的 2.1.3 离线包，其中的依赖适用于 **Windows x64 + CPython 3.13**。安装器只安装 Python 依赖，浏览器默认复用本机的 Chrome 或 Edge。
 
-```powershell
-python -m playwright install chromium
-```
-
-获取 B 站视频的现成中文字幕（将示例 BV 号替换成真实视频编号）：
+先试着获取视频的现成中文字幕。把示例 BV 号换成真实视频编号。
 
 ```powershell
 python -X utf8 scripts/browser_subtitles.py fetch "https://www.bilibili.com/video/BVxxxxxxxxxx/?p=1" --output "./sources/demo"
 ```
 
-如果平台确实要求登录，可通过专用浏览器完成登录，再重新运行获取命令：
+如果返回 `login_required`，运行下面的命令打开专用浏览器，正常登录后关闭窗口，再重跑上面的获取命令。
 
 ```powershell
-python -X utf8 scripts/browser_subtitles.py login bilibili --channel msedge
+python -X utf8 scripts/browser_subtitles.py login bilibili
 ```
 
-成功获取后会生成 `subtitle.json`、`subtitle.txt` 与 `subtitle.srt` 等文件。**这个脚本只负责获取字幕，不会单独生成最终知识笔记**；笔记整理仍由 Agent 按 Skill 规则完成。
+脚本会自动探测 Chrome 或 Edge，并优先复用上次取字幕成功的通道。需要指定浏览器时，在 `login` 和 `fetch` 两条命令中使用同一个 `--channel chrome` 或 `--channel msedge`。切换通道后可能需要重新登录。若出现「终端已装好，Agent 仍无法导入」，对比两个诊断命令的解释器路径。
 
-完整细节见 [字幕获取说明](references/acquisition.md)。
+成功获取后会生成 `subtitle.json`、`subtitle.txt` 和 `subtitle.srt`。Agent 根据 Skill 规则将这些字幕整理成最终的 Markdown 笔记。完整流程见 [字幕获取说明](references/acquisition.md)。
+
+### 为目标环境生成离线依赖包
+
+在与目标环境匹配的操作系统、架构和 Python 版本上运行 `python -X utf8 bootstrap.py --download-wheels`。生成并校验通过后，将 `wheels/` 内的 wheel 单独打包。使用者将对应文件放入源码根目录的 `wheels/`，再运行安装器。
 
 ## 笔记产出
 
@@ -137,6 +140,9 @@ sources/
 ```text
 video-knowledge-notes/
 ├── SKILL.md                         # Skill 主入口及工作流程
+├── bootstrap.py                     # 环境诊断、安装与离线包校验
+├── requirements.txt                 # Python 依赖
+├── wheels/                          # 放置匹配环境的离线 wheel
 ├── scripts/
 │   └── browser_subtitles.py         # B 站字幕获取与专用浏览器登录
 └── references/
@@ -155,6 +161,8 @@ video-knowledge-notes/
 - 如果备用方案涉及云端上传或付费 API，应先取得用户授权。
 - 视频平台接口、字幕可用性、网络环境及账号权限均可能影响实际结果。
 
+许可证为 [MIT](LICENSE)。
+
 ## 参考文档
 
 - [Skill 工作入口](SKILL.md)
@@ -167,6 +175,6 @@ video-knowledge-notes/
 ---
 
 <div align="center">
-<p><strong>Video Knowledge Notes · v1.0.0</strong></p>
+<p><strong>Video Knowledge Notes · v2.1.3</strong></p>
 <p>让视频知识成为可以长期阅读、理解和复用的笔记。</p>
 </div>

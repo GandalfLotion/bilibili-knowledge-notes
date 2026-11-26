@@ -8,7 +8,9 @@ import json
 import math
 import os
 from pathlib import Path
+import platform
 import re
+import shutil
 import sys
 import time
 from urllib.parse import urlsplit, parse_qs, urlencode
@@ -17,6 +19,38 @@ import urllib.request
 SITES = {'bilibili': 'https://www.bilibili.com/',
          'xiaohongshu': 'https://www.xiaohongshu.com/',
          'douyin': 'https://www.douyin.com/'}
+
+BROWSER_CANDIDATES = {
+    'Windows': {
+        'chrome': [r'C:\Program Files\Google\Chrome\Application\chrome.exe',
+                   r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+                   os.path.expandvars(r'%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe')],
+        'msedge': [r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+                   r'C:\Program Files\Microsoft\Edge\Application\msedge.exe'],
+    },
+    'Darwin': {
+        'chrome': ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
+        'msedge': ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'],
+    },
+    'Linux': {
+        'chrome': ['google-chrome', 'google-chrome-stable'],
+        'msedge': ['microsoft-edge', 'microsoft-edge-stable'],
+    },
+}
+
+
+def detect_browser_channel():
+    """Reuse an installed system browser; Playwright's bundled Chromium needs a large download."""
+    system = platform.system()
+    candidates = BROWSER_CANDIDATES.get(system, BROWSER_CANDIDATES['Linux'])
+    for channel in ('chrome', 'msedge'):
+        for item in candidates.get(channel, []):
+            if system == 'Linux':
+                if shutil.which(item):
+                    return channel
+            elif os.path.isfile(item):
+                return channel
+    return None
 
 
 class Stop(Exception):
@@ -30,9 +64,40 @@ def preferred_channel(root, site, explicit=None):
     try:
         value = json.loads((root / 'preferences' / f'{site}.json').read_text(encoding='utf-8'))
         channel = value.get('last_successful_channel')
-        return channel if channel in ('chrome', 'msedge', 'chromium') else None
+        if channel in ('chrome', 'msedge', 'chromium'):
+            return channel
     except (OSError, ValueError, AttributeError):
+        pass
+    return detect_browser_channel()
+
+
+def chromium_binary_available():
+    """True/False, or None when Playwright is absent and the binary cannot be probed."""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            return Path(p.chromium.executable_path).is_file()
+    except Exception:
         return None
+
+
+def resolve_channel(root, site, explicit=None, chromium_available=True):
+    """Single source of truth for doctor() and fetch/login(): the channel actually used.
+
+    A saved Chromium preference may outlive its binary; both callers must apply the
+    same downgrade rule so diagnosis never disagrees with execution.
+    """
+    preferred = preferred_channel(root, site, explicit)
+    resolved = preferred or 'chromium'
+    note = None
+    if resolved == 'chromium' and chromium_available is False:
+        detected = None if explicit else detect_browser_channel()
+        if detected:
+            note = 'Chromium 二进制缺失，已从偏好降级到系统 ' + detected
+            resolved = detected
+        else:
+            note = 'Chromium 二进制缺失，且未检测到系统 Chrome/Edge'
+    return {'channel': resolved, 'preferred': preferred, 'note': note}
 
 
 def remember_channel(root, site, channel):
@@ -192,7 +257,70 @@ def save(out, data):
             stream.write(content)
 
 
+def doctor():
+    """Environment report for issue triage; probes real imports and resolves the final browser channel."""
+    root = Path(os.environ.get('VKN_DATA_DIR', str(Path.home() / '.video-knowledge-notes'))).expanduser().resolve()
+    try:
+        from importlib.metadata import version
+        playwright_version = version('playwright')
+    except Exception:
+        playwright_version = None
+    # Metadata alone can exist while the import fails (wrong ABI, half-installed venv).
+    # Probe the real import; this still works when no third-party package is installed.
+    try:
+        from playwright.sync_api import sync_playwright  # noqa: F401
+        import pyee, greenlet  # noqa: F401
+        deps_importable = True
+    except Exception:
+        deps_importable = False
+    profiles = {}
+    profile_root = root / 'browser-profiles'
+    if profile_root.is_dir():
+        for site_dir in profile_root.iterdir():
+            if site_dir.is_dir():
+                profiles[site_dir.name] = sorted(p.name for p in site_dir.iterdir() if p.is_dir())
+    preferences = {}
+    for site in SITES:
+        target = root / 'preferences' / (site + '.json')
+        if target.is_file():
+            try:
+                preferences[site] = json.loads(target.read_text(encoding='utf-8')).get('last_successful_channel')
+            except (OSError, ValueError, AttributeError):
+                pass
+    chromium_available = chromium_binary_available()
+    resolution = resolve_channel(root, 'bilibili', chromium_available=chromium_available)
+    return {
+        'status': 'ok',
+        'python': sys.version.split()[0],
+        'python_executable': sys.executable,
+        'platform': platform.system(),
+        'playwright': playwright_version or 'missing',
+        'detected_browser_channel': detect_browser_channel(),
+        'preferred_channel': resolution['preferred'],
+        'channel_that_will_be_used': resolution['channel'],
+        'channel_confirmed': chromium_available is not None,
+        'chromium_binary_available': chromium_available,
+        'channel_resolution': resolution['note'] or (
+            '依赖未安装，无法确认 Chromium 二进制状态' if chromium_available is None else '按偏好直接使用'),
+        'saved_channel_preferences': preferences,
+        'existing_profiles': profiles,
+        'data_root': str(root),
+        'dependencies_ready': deps_importable,
+        'required_dependency': 'playwright (no fallback without it)',
+        'hints': [
+            'Playwright is required; there is no no-Playwright fallback. Run bootstrap.py to install.',
+            'Never run "playwright install chromium": this tool reuses the system Chrome/Edge.',
+            'doctor and fetch share resolve_channel(); channel_that_will_be_used is the real final channel.',
+            'A saved Chromium channel is downgraded to a detected Chrome/Edge if its binary is missing.',
+            'Install dependencies and run fetch/login with the same interpreter (see python_executable).',
+            'A profile directory does not prove a valid login; verify with fetch.',
+        ],
+    }
+
+
 def execute(args):
+    if args.command == 'doctor':
+        return doctor()
     if args.command == 'fetch':
         bvid, part = identify(args.url)
         out = Path(args.output)
@@ -205,20 +333,27 @@ def execute(args):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        raise Stop('browser_unavailable', '当前Python未安装Playwright；请按需配置。')
+        raise Stop('browser_unavailable', '未安装 Playwright。运行 python bootstrap.py 安装依赖；不要执行 playwright install chromium（本工具复用系统 Chrome/Edge）。')
     root = Path(os.environ.get('VKN_DATA_DIR', str(Path.home() / '.video-knowledge-notes'))).expanduser().resolve()
     # Separate channels to avoid incompatible profile versions; use the same channel later.
-    channel = preferred_channel(root, site, args.channel)
-    profile = root / 'browser-profiles' / site / (channel or 'chromium')
-    profile.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
+        chromium_available = Path(p.chromium.executable_path).is_file()
+        resolution = resolve_channel(root, site, args.channel, chromium_available)
+        resolved = resolution['channel']
+        if resolved == 'chromium' and not chromium_available:
+            # A saved Chromium preference may outlive its binary. Degrade to a system
+            # browser via resolve_channel(); this never downloads Chromium.
+            raise Stop('browser_unavailable', '未检测到系统 Chrome/Edge，且没有已安装的 Playwright Chromium。请安装 Chrome 或 Edge 并用 --channel 指定；本工具不会下载浏览器二进制（150MB+）。')
+        profile = root / 'browser-profiles' / site / resolved
+        profile.mkdir(parents=True, exist_ok=True)
         try:
             context = p.chromium.launch_persistent_context(
-                str(profile), channel=None if channel == 'chromium' else channel, headless=args.command != 'login',
+                str(profile), channel=None if resolved == 'chromium' else resolved,
+                headless=args.command != 'login',
                 args=['--no-proxy-server'] if args.direct else [],
                 timeout=30000, accept_downloads=False)
         except Exception:
-            raise Stop('browser_unavailable', '无法启动专用浏览器；检查安装和档案占用，不要删除登录数据。')
+            raise Stop('browser_unavailable', '无法启动专用浏览器。确认已安装 Chrome/Edge 并用 --channel 指定；检查档案是否被另一实例占用；不要删除登录数据，也不要执行 playwright install chromium。')
         try:
             if args.command == 'login':
                 page = context.pages[0] if context.pages else context.new_page()
@@ -277,9 +412,9 @@ def execute(args):
                         response.dispose()
             data = acquire(get_json, bvid, part)
             save(out, data)
-            remembered = remember_channel(root, site, channel)
+            remembered = remember_channel(root, site, resolved)
             return {'status': 'ok', 'segments': len(data['segments']), 'bvid': bvid, 'part': part,
-                    'channel': channel or 'chromium', 'channel_preference_saved': remembered}
+                    'channel': resolved, 'channel_preference_saved': remembered}
         finally:
             try:
                 context.close()
@@ -293,6 +428,7 @@ def main():
             stream.reconfigure(encoding='utf-8', errors='backslashreplace')
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
+    sub.add_parser('doctor', help='check Python, Playwright and system browsers without installing anything')
     login = sub.add_parser('login')
     login.add_argument('site', choices=SITES)
     login.add_argument('--wait-seconds', type=int, default=300)

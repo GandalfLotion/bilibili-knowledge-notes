@@ -8,13 +8,15 @@
 
 ## 环境按需准备
 
-先用当前 Python 检查 `import playwright`；已安装则复用。缺少时说明用途并经授权执行 `python -m pip install playwright`。浏览器可用已安装 Edge/Chrome（`--channel msedge` / `chrome`），或经授权运行 `python -m playwright install chromium`。不安装全部转写依赖。
+已有字幕和有效缓存优先复用，可直接进入写笔记环节。需要 B 站专用浏览器登录或在线取字幕时，Playwright 是必需依赖，没有跳过安装的降级路径。**当前任务能调用兼容 Python 时直接复用即可**（3.10+，随包离线 wheel 还需 CPython 3.13）；WorkBuddy 通常自带托管运行时，但把本目录当独立 CLI 跑或换用别的 Agent 时，需自行确认环境里有可用的 Python。所有命令用同一个解释器，装错环境会表现为「明明装好了却报未安装 Playwright」。
+
+先运行 `python bootstrap.py --doctor`（纯标准库、零依赖、不安装任何东西）查看 Python 版本与解释器路径、Playwright、系统浏览器与登录档案状态。缺少依赖时运行 `python bootstrap.py`：优先使用 `wheels/` 中的离线 wheel，其次依次尝试多个短超时镜像；全程不下载浏览器。随包离线 wheel 只匹配 Windows x64 的 CPython 3.13，其他环境由 pip 在线解析或使用对应环境生成的离线包。浏览器直接复用系统已安装的 Chrome/Edge，脚本会自动探测。**不要执行 `python -m playwright install chromium`**：那会下载 150MB+ 二进制，是安装卡顿的主要来源。不安装全部转写依赖。
 
 非 Windows 系统生成简体字幕需已有 OpenCC，缺少时按需安装 `opencc-python-reimplemented`；Windows 使用系统字形转换。它只改字形，不纠错。
 
 ## 首次获取与登录
 
-所有命令使用同一解释器。显式 `--channel` 优先，否则复用该平台上次成功取得字幕的通道；无历史时仍用 Playwright Chromium，不自动安装。首次升级尚无偏好文件时，若已知 Chrome 或 Edge 成功，显式指定一次即可。缓存命中或关闭登录窗口不更新偏好。默认数据根目录为用户目录下 `.video-knowledge-notes`，可用环境变量 `VKN_DATA_DIR` 指定独立位置。非敏感通道偏好保存在 `preferences/平台.json`；每个平台的登录数据独立保存，不在技能包或知识库中。禁止指向日常浏览器的默认用户目录，不并发打开同一专用档案。
+所有命令使用同一解释器。显式 `--channel` 优先，否则复用该平台上次成功取得字幕的通道；没有历史时自动探测系统已安装的 Chrome/Edge 并复用。若历史通道指向 Playwright Chromium 但对应二进制已不存在，自动模式会降级到检测到的系统 Chrome/Edge（通道不同可能需要重新登录）；两者都不可用时给出明确报错，**绝不下载浏览器二进制**。缓存命中或关闭登录窗口不更新偏好。默认数据根目录为用户目录下 `.video-knowledge-notes`，可用环境变量 `VKN_DATA_DIR` 指定独立位置。非敏感通道偏好保存在 `preferences/平台.json`；每个平台的登录数据独立保存，不在技能包或知识库中。禁止指向日常浏览器的默认用户目录，不并发打开同一专用档案。
 
 ```text
 python -X utf8 SKILL_DIR/scripts/browser_subtitles.py fetch "https://www.bilibili.com/video/BVxxxxxxxxxx/?p=1" --output OUT/sources
